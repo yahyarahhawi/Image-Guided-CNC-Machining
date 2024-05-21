@@ -170,7 +170,7 @@ The issues ecnountered, in addition to the ones mentioned at the results section
 4. It was difficult to connect with the manufacturing firm I worked at and determine a time where we could meet and discuss aspects of the project. I was not able to design a product that fully meets the needs that these people have in their industry, but only the needs I remember from my short time working with them.
 
 ## Improvements
-Improvements include:
+Future Improvements include:
 1. Better segmentation method
 2. use of template matching or aligning such that misplacing parts could be accounted for.
 3. Impelmenting an algorithm that utilizes a changing light source (in position) that quantifies the depth of the artifacts or defects by stacking the shadows overtime. 
