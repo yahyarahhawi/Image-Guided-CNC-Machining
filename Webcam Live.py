@@ -120,9 +120,25 @@ class WebcamApp:
             # Update the accuracy label to also show flaws detected
             self.accuracy_label.config(text=f"Accuracy: {flaws_detected:.5f} Flaws Detected: {flaws_detected:.2%}")
 
-def compare_edges(img_base, ex1, threshold):
+def compare_edges(img_base, ex1, threshold = 0.05):
+    """
+    Takes two images as input, one is img_base: reference part, and other is ex1: measured part. returns final visualization of  flaws detected
+    along with percentage of flaws.
+    """
+    
+    def canny(base,sigma = 2):
+        """
+        returns a dilated canny edge detection of base
+        """
+        canny_edges = skimage.feature.canny(base, sigma = sigma)
+        eroded = skimage.morphology.dilation(canny_edges,disk(8))
+        return eroded
+    
     def find_edges(image):
-        gray = (skimage.color.rgb2gray(image) * 255).astype(np.uint8)
+        """
+        normalizes an image and performs farid edge detection
+        """
+        gray = (image * 255).astype(np.uint8)
         mask = gray < 150
         gray = skimage.exposure.equalize_hist(gray)
         gray = gray * mask
@@ -131,8 +147,19 @@ def compare_edges(img_base, ex1, threshold):
         edges = skimage.filters.farid(gray) > threshold
         return edges
     
-    img_base = find_edges(img_base) * 255
-    ex1 = find_edges(ex1) * 255
+    #converts images to grayscale if needed.
+    if img_base.shape[-1] == 3:
+            img_base = skimage.color.rgb2gray(img_base)
+            ex1 = skimage.color.rgb2gray(ex1)
+    
+    #creates cropping window
+    window = np.zeros_like(img_base)
+    window[:, :] = 1
+    
+    img_base = (canny(img_base) * 255) * window
+    ex1 = (find_edges(ex1) * 255) * window
+
+    #subtracts major edges in base using canny from the fraid edges found in ex1
     final = np.clip(ex1 - img_base, a_min=0, a_max=255) > 0
     total = np.sum(img_base < 150)
     numerator = np.sum(final)
@@ -143,22 +170,37 @@ def compare_edges(img_base, ex1, threshold):
     return final, flaws_detected
 
 
-def compare(img_base, ex1):
+def compare(img_base, ex1,threshold = 170):
+    """
+    performs an intersection over union between two images and returns a visualization of the operation and the value of IOU
+    """
+    #final canvas that will display result
     canvas = np.zeros_like(img_base)
+    
+    #using blue channel since it gives best separation between LED light in background and part
     img_base = img_base[:, :, 2]
     ex1 = ex1[:, :, 2]
-    base_T = 255 - ((img_base > 170) * 255)
-    ex1_T = 255 - ((ex1 > 170) * 255)
+    
+    base_T = 255 - ((img_base > threshold) * 255)
+    ex1_T = 255 - ((ex1 > threshold) * 255)
+    
+    #creates a crop window where operation will occur in
     window = np.zeros_like(base_T)
     window[:, :] = 1
     base_T = window * base_T
     ex1_T = window * ex1_T
+    
+    #populates canvas with RGB values of IOT
     canvas[:, :, 1] = base_T
     canvas[:, :, 2] = base_T
     canvas[:, :, 0] = ex1_T
+    
+    #Using thresholding 
     slicable = (skimage.color.rgb2gray(canvas) * 255).astype(np.uint8)
     more = slicable == 54
     less = slicable == 200
+    
+    #calculating union
     b = np.sum(np.logical_or(base_T, more))
     a = np.sum(base_T > 0)
     accuracy = a / b
